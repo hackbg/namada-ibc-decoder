@@ -5,18 +5,30 @@ use namada_sdk::{
     ibc::{
         decode_message,
         IbcMessage,
-        MsgTransfer,
-        MsgNftTransfer,
+        MsgTransfer    as IbcMsgTransfer,
+        MsgNftTransfer as IbcMsgNftTransfer,
         core::{
             handler::types::msgs::MsgEnvelope,
             client::context::types::msgs::*,
             connection::types::msgs::*,
             channel::types::msgs::*
         },
+        apps::{
+            transfer::types::msgs::transfer::MsgTransfer,
+            nft_transfer::types::msgs::transfer::MsgTransfer as MsgNftTransfer,
+        },
     },
     token,
     //systems::trans_token,
 };
+
+macro_rules! to_object {
+    ($($id:literal = $val:expr),* $(,)?) => {{
+        let object = Object::new();
+        $(Reflect::set(&object, &$id.into(), &$val.to_js()?)?;)*
+        object
+    }}
+}
 
 #[wasm_bindgen]
 pub struct Decode;
@@ -35,20 +47,29 @@ impl Decode {
                     ClientMsg::CreateClient(MsgCreateClient {
                         client_state,
                         consensus_state,
-                        signer ,
-                    }) => {
+                        signer,
+                    }) => to_object! {
+                        "clientState"    = client_state,
+                        "consensusState" = consensus_state,
+                        "signer"         = signer,
                     },
                     ClientMsg::UpdateClient(MsgUpdateClient {
                         client_id,
                         client_message,
-                        signer
-                    }) => {
+                        signer,
+                    }) => to_object! {
+                        "clientId"      = client_id,
+                        "clientMessage" = client_message,
+                        "signer"        = signer,
                     },
                     ClientMsg::Misbehaviour(MsgSubmitMisbehaviour {
                         client_id,
                         misbehaviour,
                         signer,
-                    }) => {
+                    }) => to_object! {
+                        "clientId"     = client_id,
+                        "misbehaviour" = misbehaviour,
+                        "signer"       = signer,
                     },
                     ClientMsg::UpgradeClient(MsgUpgradeClient {
                         client_id,
@@ -57,13 +78,22 @@ impl Decode {
                         proof_upgrade_client,
                         proof_upgrade_consensus_state,
                         signer,
-                    }) => {
+                    }) => to_object! {
+                        "clientId"                   = client_id,
+                        "upgradedClientState"        = upgraded_client_state,
+                        "upgradedConsensusState"     = upgraded_consensus_state,
+                        "proofUpgradeClient"         = proof_upgrade_client,
+                        "proofUpgradeConsensusState" = proof_upgrade_consensus_state,
+                        "signer"                     = signer,
                     },
                     ClientMsg::RecoverClient(MsgRecoverClient {
                         subject_client_id,
                         substitute_client_id,
                         signer,
-                    }) => {
+                    }) => to_object! {
+                        "subjectClientId"    = subject_client_id,
+                        "substituteClientId" = substitute_client_id,
+                        "signer"             = signer,
                     },
                 },
 
@@ -74,7 +104,7 @@ impl Decode {
                         version,
                         delay_period,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                     ConnectionMsg::OpenTry(MsgConnectionOpenTry {
                         client_id_on_b,
                         client_state_of_b_on_a,
@@ -89,7 +119,7 @@ impl Decode {
                         signer,
                         proof_consensus_state_of_b,
                         previous_connection_id,
-                    }) => {},
+                    }) => to_object! {},
                     ConnectionMsg::OpenAck(MsgConnectionOpenAck {
                         conn_id_on_a,
                         conn_id_on_b,
@@ -102,13 +132,13 @@ impl Decode {
                         version,
                         signer,
                         proof_consensus_state_of_a,
-                    }) => {},
+                    }) => to_object! {},
                     ConnectionMsg::OpenConfirm(MsgConnectionOpenConfirm {
                         conn_id_on_b,
                         proof_conn_end_on_a,
                         proof_height_on_a,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                 },
 
                 MsgEnvelope::Channel(message) => match message {
@@ -119,7 +149,7 @@ impl Decode {
                         ordering,
                         signer,
                         version_proposal,
-                    }) => {},
+                    }) => to_object! {},
                     ChannelMsg::OpenTry(MsgChannelOpenTry {
                         port_id_on_b,
                         connection_hops_on_b,
@@ -131,7 +161,7 @@ impl Decode {
                         ordering,
                         signer,
                         version_proposal,
-                    }) => {},
+                    }) => to_object! {},
                     ChannelMsg::OpenAck(MsgChannelOpenAck {
                         port_id_on_a,
                         chan_id_on_a,
@@ -140,26 +170,26 @@ impl Decode {
                         proof_chan_end_on_b,
                         proof_height_on_b,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                     ChannelMsg::OpenConfirm(MsgChannelOpenConfirm {
                         port_id_on_b,
                         chan_id_on_b,
                         proof_chan_end_on_a,
                         proof_height_on_a,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                     ChannelMsg::CloseInit(MsgChannelCloseInit {
                         port_id_on_a,
                         chan_id_on_a,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                     ChannelMsg::CloseConfirm(MsgChannelCloseConfirm {
                         port_id_on_b,
                         chan_id_on_b,
                         proof_chan_end_on_a,
                         proof_height_on_a,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                 },
 
                 MsgEnvelope::Packet(message) => match message {
@@ -168,21 +198,21 @@ impl Decode {
                         proof_commitment_on_a,
                         proof_height_on_a,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                     PacketMsg::Ack(MsgAcknowledgement {
                         packet,
                         acknowledgement,
                         proof_acked_on_b,
                         proof_height_on_b,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                     PacketMsg::Timeout(MsgTimeout {
                         packet,
                         next_seq_recv_on_b,
                         proof_unreceived_on_b,
                         proof_height_on_b,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                     PacketMsg::TimeoutOnClose(MsgTimeoutOnClose {
                         packet,
                         next_seq_recv_on_b,
@@ -190,19 +220,37 @@ impl Decode {
                         proof_close_on_b,
                         proof_height_on_b,
                         signer,
-                    }) => {},
+                    }) => to_object! {},
                 },
 
             },
 
             IbcMessage::Transfer(boxed_message) => {
-                let MsgTransfer { message, transfer, } = *boxed_message;
+                let IbcMsgTransfer {
+                    message: MsgTransfer {
+                        port_id_on_a,
+                        chan_id_on_a,
+                        packet_data,
+                        timeout_height_on_b,
+                        timeout_timestamp_on_b,
+                    },
+                    transfer,
+                } = *boxed_message;
+                to_object! {}
             },
 
-            IbcMessage::NftTransfer(MsgNftTransfer {
-                message,
-                transfer,
-            }) => {
+            IbcMessage::NftTransfer(message) => {
+                let IbcMsgNftTransfer {
+                    message: MsgNftTransfer {
+                        port_id_on_a,
+                        chan_id_on_a,
+                        packet_data,
+                        timeout_height_on_b,
+                        timeout_timestamp_on_b,
+                    },
+                    transfer,
+                } = message;
+                to_object! {}
             },
         };
         Ok(JsString::from(format!("{decoded:?}")))
