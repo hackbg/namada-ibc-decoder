@@ -73,7 +73,7 @@ export class Decode {
     }
     /**
      * @param {Uint8Array} source
-     * @returns {object}
+     * @returns {string}
      */
     static ibc(source) {
         const ret = wasm.decode_ibc(source);
@@ -118,6 +118,10 @@ async function __wbg_load(module, imports) {
 function __wbg_get_imports() {
     const imports = {};
     imports.wbg = {};
+    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
+        const ret = getStringFromWasm0(arg0, arg1);
+        return ret;
+    };
     imports.wbg.__wbg_new_70a2f23d1565c04c = function() { return logError(function (arg0, arg1) {
         const ret = new Error(getStringFromWasm0(arg0, arg1));
         return ret;

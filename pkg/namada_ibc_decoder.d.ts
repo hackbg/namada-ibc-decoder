@@ -4,9 +4,9 @@ export class Decode {
   free(): void;
   /**
    * @param {Uint8Array} source
-   * @returns {object}
+   * @returns {string}
    */
-  static ibc(source: Uint8Array): object;
+  static ibc(source: Uint8Array): string;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
