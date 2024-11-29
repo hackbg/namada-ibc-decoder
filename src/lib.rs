@@ -277,21 +277,38 @@ impl Decode {
                         proof_commitment_on_a,
                         proof_height_on_a,
                         signer,
-                    }) => to_object! {},
+                    }) => to_object! {
+                        "packet"             = packet,
+                        "proofCommitmentOnA" = proof_commitment_on_a,
+                        "proofHeightOnA"     = proof_height_on_a,
+                        "signer"             = signer,
+                    },
                     PacketMsg::Ack(MsgAcknowledgement {
                         packet,
                         acknowledgement,
                         proof_acked_on_b,
                         proof_height_on_b,
                         signer,
-                    }) => to_object! {},
+                    }) => to_object! {
+                        "packet"          = packet,
+                        "acknowledgement" = acknowledgement,
+                        "proofAckedOnB"   = proof_acked_on_b,
+                        "proofHeightOnB"  = proof_height_on_b,
+                        "signer"          = signer,
+                    },
                     PacketMsg::Timeout(MsgTimeout {
                         packet,
                         next_seq_recv_on_b,
                         proof_unreceived_on_b,
                         proof_height_on_b,
                         signer,
-                    }) => to_object! {},
+                    }) => to_object! {
+                        "packet"             = packet,
+                        "nextSeqRecvOnB"     = next_seq_recv_on_b,
+                        "proofUnreceivedOnB" = proof_unreceived_on_b,
+                        "proofHeightOnB"     = proof_height_on_b,
+                        "signer"             = signer,
+                    },
                     PacketMsg::TimeoutOnClose(MsgTimeoutOnClose {
                         packet,
                         next_seq_recv_on_b,
@@ -299,7 +316,14 @@ impl Decode {
                         proof_close_on_b,
                         proof_height_on_b,
                         signer,
-                    }) => to_object! {},
+                    }) => to_object! {
+                        "packet"             = packet,
+                        "nextSeqRecvOnB"     = next_seq_recv_on_b,
+                        "proofUnreceivedOnB" = proof_unreceived_on_b,
+                        "proofCloseOnB"      = proof_close_on_b,
+                        "proofHeightOnB"     = proof_height_on_b,
+                        "signer"             = signer,
+                    },
                 },
 
             },
@@ -315,7 +339,16 @@ impl Decode {
                     },
                     transfer,
                 } = *boxed_message;
-                to_object! {}
+                to_object! {
+                    "message" = to_object! {
+                        "portIdOnA"           = port_id_on_a,
+                        "chanIdOnA"           = chan_id_on_a,
+                        "packetData"          = packet_data,
+                        "timeoutHeightOnB"    = timeout_height_on_b,
+                        "timeoutTimestampOnB" = timeout_timestamp_on_b,
+                    },
+                    "transfer" = transfer,
+                }
             },
 
             IbcMessage::NftTransfer(message) => {
@@ -329,9 +362,90 @@ impl Decode {
                     },
                     transfer,
                 } = message;
-                to_object! {}
+                to_object! {
+                    "message" = to_object! {
+                        "portIdOnA"           = port_id_on_a,
+                        "chanIdOnA"           = chan_id_on_a,
+                        "packetData"          = packet_data,
+                        "timeoutHeightOnB"    = timeout_height_on_b,
+                        "timeoutTimestampOnB" = timeout_timestamp_on_b,
+                    },
+                    "transfer" = transfer,
+                }
             },
         };
         Ok(JsString::from(format!("{decoded:?}")))
+    }
+}
+
+pub trait ToJS {
+    fn to_js (&self) -> Result<JsValue, Error>;
+}
+
+impl<T: ToJS> ToJS for Option<T> {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        if let Some(value) = self {
+            value.to_js()
+        } else {
+            Ok(JsValue::NULL)
+        }
+    }
+}
+
+impl ToJS for u64 {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(*self))
+    }
+}
+
+impl ToJS for Object {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::host::types::identifiers::ClientId {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::host::types::identifiers::ChannelId {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::host::types::identifiers::PortId {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::client::types::Height {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "revision_number" = self.revision_number(),
+            "revision_height" = self.revision_height(),
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::timeout::TimeoutHeight {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(match self {
+            Self::Never => JsValue::from("never"),
+            Self::At(height) => JsValue::from(height.to_js()?)
+        })
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::commitment_types::commitment::CommitmentProofBytes {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        use namada_sdk::borsh::BorshSerializeExt;
+        let bytes = self.serialize_to_vec();
+        let array = Uint8Array::new_with_length(bytes.len() as u32);
+        array.copy_from(bytes.as_slice());
+        Ok(JsValue::from(array))
     }
 }
