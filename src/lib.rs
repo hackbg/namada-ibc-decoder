@@ -398,6 +398,18 @@ impl ToJS for u64 {
     }
 }
 
+impl ToJS for String {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self))
+    }
+}
+
+impl ToJS for std::time::Duration {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        todo!()
+    }
+}
+
 impl ToJS for Object {
     fn to_js (&self) -> Result<JsValue, Error> {
         Ok(JsValue::from(self))
@@ -422,6 +434,30 @@ impl ToJS for namada_sdk::ibc::core::host::types::identifiers::PortId {
     }
 }
 
+impl ToJS for namada_sdk::ibc::core::host::types::identifiers::ConnectionId {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::host::types::identifiers::Sequence {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.value()))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::Version {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::packet::Packet {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(todo!())
+    }
+}
+
 impl ToJS for namada_sdk::ibc::core::client::types::Height {
     fn to_js (&self) -> Result<JsValue, Error> {
         Ok(JsValue::from(to_object! {
@@ -431,12 +467,28 @@ impl ToJS for namada_sdk::ibc::core::client::types::Height {
     }
 }
 
+impl ToJS for namada_sdk::ibc::core::channel::types::channel::Order {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
 impl ToJS for namada_sdk::ibc::core::channel::types::timeout::TimeoutHeight {
     fn to_js (&self) -> Result<JsValue, Error> {
         Ok(match self {
             Self::Never => JsValue::from("never"),
             Self::At(height) => JsValue::from(height.to_js()?)
         })
+    }
+}
+
+impl ToJS for namada_sdk::ibc::primitives::Signer {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        use namada_sdk::borsh::BorshSerializeExt;
+        let bytes = self.serialize_to_vec();
+        let array = Uint8Array::new_with_length(bytes.len() as u32);
+        array.copy_from(bytes.as_slice());
+        Ok(JsValue::from(array))
     }
 }
 
