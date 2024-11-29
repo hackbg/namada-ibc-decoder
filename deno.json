@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "dev": "deno run --watch main.ts"
+  },
+  "imports": {
+    "@slonik/pg-driver": "npm:@slonik/pg-driver@^46.2.0",
+    "@std/assert": "jsr:@std/assert@1",
+    "slonik": "npm:slonik@^46.2.0"
+  }
+}
