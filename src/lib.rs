@@ -1,26 +1,6 @@
 extern crate wasm_bindgen;
 use wasm_bindgen::prelude::*;
 use js_sys::*;
-use namada_sdk::{
-    ibc::{
-        decode_message,
-        IbcMessage,
-        MsgTransfer    as IbcMsgTransfer,
-        MsgNftTransfer as IbcMsgNftTransfer,
-        core::{
-            handler::types::msgs::MsgEnvelope,
-            client::context::types::msgs::*,
-            connection::types::msgs::*,
-            channel::types::msgs::*
-        },
-        apps::{
-            transfer::types::msgs::transfer::MsgTransfer,
-            nft_transfer::types::msgs::transfer::MsgTransfer as MsgNftTransfer,
-        },
-    },
-    token,
-    //systems::trans_token,
-};
 
 macro_rules! to_object {
     ($($id:literal = $val:expr),* $(,)?) => {{
@@ -35,11 +15,31 @@ pub struct Decode;
 
 #[wasm_bindgen]
 impl Decode {
-    #[wasm_bindgen] pub fn ibc (source: Uint8Array) -> Result<JsString, Error> {
+    #[wasm_bindgen] pub fn ibc (source: Uint8Array) -> Result<Object, Error> {
+        use namada_sdk::{
+            ibc::{
+                decode_message,
+                IbcMessage,
+                MsgTransfer    as IbcMsgTransfer,
+                MsgNftTransfer as IbcMsgNftTransfer,
+                core::{
+                    handler::types::msgs::MsgEnvelope,
+                    client::context::types::msgs::*,
+                    connection::types::msgs::*,
+                    channel::types::msgs::*
+                },
+                apps::{
+                    transfer::types::msgs::transfer::MsgTransfer,
+                    nft_transfer::types::msgs::transfer::MsgTransfer as MsgNftTransfer,
+                },
+            },
+            token,
+            //systems::trans_token,
+        };
         let mut buffer = vec![0u8;source.length() as usize];
         source.copy_to(buffer.as_mut_slice());
-        let decoded = decode_message::<()>(&buffer[..]).map_err(|e|Error::new(&format!("{e}")))?;
-        match decoded {
+        let message = decode_message::<()>(&buffer[..]).map_err(|e|Error::new(&format!("{e}")))?;
+        let decoded = match message {
 
             IbcMessage::Envelope(message) => match *message {
 
@@ -374,12 +374,18 @@ impl Decode {
                 }
             },
         };
-        Ok(JsString::from(format!("{decoded:?}")))
+        Ok(decoded)
     }
 }
 
 pub trait ToJS {
     fn to_js (&self) -> Result<JsValue, Error>;
+}
+
+impl ToJS for () {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::UNDEFINED)
+    }
 }
 
 impl<T: ToJS> ToJS for Option<T> {
@@ -389,6 +395,24 @@ impl<T: ToJS> ToJS for Option<T> {
         } else {
             Ok(JsValue::NULL)
         }
+    }
+}
+
+impl<T: ToJS> ToJS for Vec<T> {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        let array = Array::new();
+        for item in self.iter() {
+            array.push(&item.to_js()?);
+        }
+        Ok(JsValue::from(&array))
+    }
+}
+
+impl ToJS for Vec<u8> {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        let array = Uint8Array::new_with_length(self.len() as u32);
+        array.copy_from(self.as_slice());
+        Ok(JsValue::from(array))
     }
 }
 
@@ -406,13 +430,67 @@ impl ToJS for String {
 
 impl ToJS for std::time::Duration {
     fn to_js (&self) -> Result<JsValue, Error> {
-        todo!()
+        Ok(JsValue::from(&format!("{self:?}")))
     }
 }
 
 impl ToJS for Object {
     fn to_js (&self) -> Result<JsValue, Error> {
         Ok(JsValue::from(self))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::commitment_types::commitment::CommitmentPrefix {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        let bytes = self.as_bytes();
+        let array = Uint8Array::new_with_length(bytes.len() as u32);
+        array.copy_from(bytes);
+        Ok(JsValue::from(array))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::acknowledgement::Acknowledgement {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        let bytes = self.as_bytes();
+        let array = Uint8Array::new_with_length(bytes.len() as u32);
+        array.copy_from(bytes);
+        Ok(JsValue::from(&array))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::channel::Order {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::packet::Packet {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::timeout::TimeoutHeight {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(match self {
+            Self::Never => JsValue::from("never"),
+            Self::At(height) => JsValue::from(height.to_js()?)
+        })
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::channel::types::timeout::TimeoutTimestamp {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::client::types::Height {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "revision_number" = self.revision_number(),
+            "revision_height" = self.revision_height(),
+        }))
     }
 }
 
@@ -452,36 +530,6 @@ impl ToJS for namada_sdk::ibc::core::channel::types::Version {
     }
 }
 
-impl ToJS for namada_sdk::ibc::core::channel::types::packet::Packet {
-    fn to_js (&self) -> Result<JsValue, Error> {
-        Ok(todo!())
-    }
-}
-
-impl ToJS for namada_sdk::ibc::core::client::types::Height {
-    fn to_js (&self) -> Result<JsValue, Error> {
-        Ok(JsValue::from(to_object! {
-            "revision_number" = self.revision_number(),
-            "revision_height" = self.revision_height(),
-        }))
-    }
-}
-
-impl ToJS for namada_sdk::ibc::core::channel::types::channel::Order {
-    fn to_js (&self) -> Result<JsValue, Error> {
-        Ok(JsValue::from(self.as_str()))
-    }
-}
-
-impl ToJS for namada_sdk::ibc::core::channel::types::timeout::TimeoutHeight {
-    fn to_js (&self) -> Result<JsValue, Error> {
-        Ok(match self {
-            Self::Never => JsValue::from("never"),
-            Self::At(height) => JsValue::from(height.to_js()?)
-        })
-    }
-}
-
 impl ToJS for namada_sdk::ibc::primitives::Signer {
     fn to_js (&self) -> Result<JsValue, Error> {
         use namada_sdk::borsh::BorshSerializeExt;
@@ -499,5 +547,134 @@ impl ToJS for namada_sdk::ibc::core::commitment_types::commitment::CommitmentPro
         let array = Uint8Array::new_with_length(bytes.len() as u32);
         array.copy_from(bytes.as_slice());
         Ok(JsValue::from(array))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::connection::types::version::Version {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        use namada_sdk::borsh::BorshSerialize;
+        let mut bytes: Vec<u8> = vec![];
+        self.serialize(&mut bytes.as_mut_slice());
+        let array = Uint8Array::new_with_length(bytes.len() as u32);
+        array.copy_from(bytes.as_slice());
+        Ok(JsValue::from(array))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::core::connection::types::Counterparty {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "clientId"     = self.client_id,
+            "connectionId" = self.connection_id,
+            "prefix"       = self.prefix,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::transfer::types::packet::PacketData {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "token"    = self.token,
+            "sender"   = self.sender,
+            "receiver" = self.receiver,
+            "memo"     = self.memo,
+        }))
+    }
+}
+
+impl<D: std::fmt::Display> ToJS for namada_sdk::ibc::apps::transfer::types::Coin<D> {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::transfer::types::Memo {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::packet::PacketData {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "classId"   = self.class_id,
+            "classUri"  = self.class_uri,
+            "classData" = self.class_data,
+            "tokenIds"  = self.token_ids,
+            "tokenUris" = self.token_uris,
+            "tokenData" = self.token_data,
+            "sender"    = self.sender,
+            "receiver"  = self.receiver,
+            "memo"      = self.memo,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::Memo {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TokenId {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TokenIds {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        self.0.to_js()
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TokenUri {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TokenData {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::ClassId {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::ClassUri {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::ClassData {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::PrefixedClassId {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "tracePath"   = self.trace_path,
+            "baseClassId" = self.base_class_id,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TracePath {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(&format!("{self}")))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::primitives::proto::Any {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        todo!()
     }
 }
