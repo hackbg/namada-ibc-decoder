@@ -446,6 +446,12 @@ impl ToJS for Vec<u8> {
     }
 }
 
+impl ToJS for u32 {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(*self))
+    }
+}
+
 impl ToJS for u64 {
     fn to_js (&self) -> Result<JsValue, Error> {
         Ok(JsValue::from(*self))
@@ -735,6 +741,12 @@ impl ToJS for namada_sdk::ibc::clients::tendermint::types::Header {
     }
 }
 
+impl ToJS for namada_sdk::tendermint::Signature {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Vec::from(self.as_bytes()).to_js()
+    }
+}
+
 impl ToJS for namada_sdk::tendermint::block::signed_header::SignedHeader {
     fn to_js (&self) -> Result<JsValue, Error> {
         Ok(JsValue::from(to_object! {
@@ -746,18 +758,139 @@ impl ToJS for namada_sdk::tendermint::block::signed_header::SignedHeader {
 
 impl ToJS for namada_sdk::tendermint::block::Header {
     fn to_js (&self) -> Result<JsValue, Error> {
-        todo!()
+        Ok(JsValue::from(to_object! {
+            "version"            = self.version,
+            "chainId"            = self.chain_id,
+            "height"             = self.height,
+            "time"               = self.time,
+            "lastBlockId"        = self.last_block_id,
+            "lastCommitHash"     = self.last_commit_hash,
+            "dataHash"           = self.data_hash,
+            "validatorsHash"     = self.validators_hash,
+            "nextValidatorsHash" = self.next_validators_hash,
+            "consensusHash"      = self.consensus_hash,
+            "appHash"            = self.app_hash,
+            "lastResultsHash"    = self.last_results_hash,
+            "evidenceHash"       = self.evidence_hash,
+            "proposerAddress"    = self.proposer_address,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::Id {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "hash"          = self.hash,
+            "partSetHeader" = self.part_set_header,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::Height {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.value()))
     }
 }
 
 impl ToJS for namada_sdk::tendermint::block::Commit {
     fn to_js (&self) -> Result<JsValue, Error> {
-        todo!()
+        Ok(JsValue::from(to_object! {
+            "height"     = self.height,
+            "round"      = self.round,
+            "blockId"    = self.block_id,
+            "signatures" = self.signatures,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::Round {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        self.value().to_js()
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::commit_sig::CommitSig {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(match self {
+            Self::BlockIdFlagAbsent => to_object! {
+                "blockIdFlag" = "absent",
+            },
+            Self::BlockIdFlagCommit {
+                validator_address,
+                timestamp,
+                signature
+            } => to_object! {
+                "blockIdFlag"      = "commit",
+                "validatorAddress" = validator_address,
+                "timestamp"        = timestamp,
+                "signature"        = signature,
+            },
+            Self::BlockIdFlagNil {
+                validator_address,
+                timestamp,
+                signature
+            } => to_object! {
+                "blockIdFlag"      = "nil",
+                "validatorAddress" = validator_address,
+                "timestamp"        = timestamp,
+                "signature"        = signature,
+            },
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::header::Version {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "block" = self.block,
+            "app"   = self.app,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::parts::Header {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "total" = self.total,
+            "hash"  = self.hash,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::chain::Id {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.as_str()))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::account::Id {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Vec::from(self.as_bytes()).to_js()
     }
 }
 
 impl ToJS for namada_sdk::tendermint::validator::Set {
     fn to_js (&self) -> Result<JsValue, Error> {
-        todo!()
+        Ok(JsValue::from(to_object! {
+            "hash" = self.hash()
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::Hash {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Vec::from(self.as_bytes()).to_js()
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::AppHash {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Vec::from(self.as_bytes()).to_js()
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::Time {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.to_rfc3339()))
     }
 }
