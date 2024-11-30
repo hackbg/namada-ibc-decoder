@@ -1,4 +1,5 @@
 extern crate wasm_bindgen;
+extern crate console_error_panic_hook;
 use wasm_bindgen::prelude::*;
 use js_sys::*;
 
@@ -16,6 +17,8 @@ pub struct Decode;
 #[wasm_bindgen]
 impl Decode {
     #[wasm_bindgen] pub fn ibc (source: Uint8Array) -> Result<Object, Error> {
+        console_error_panic_hook::set_once();
+
         use namada_sdk::{
             ibc::{
                 decode_message,
@@ -49,6 +52,7 @@ impl Decode {
                         consensus_state,
                         signer,
                     }) => to_object! {
+                        "type"           = "envelope.client.create",
                         "clientState"    = client_state,
                         "consensusState" = consensus_state,
                         "signer"         = signer,
@@ -58,6 +62,7 @@ impl Decode {
                         client_message,
                         signer,
                     }) => to_object! {
+                        "type"           = "envelope.client.update",
                         "clientId"      = client_id,
                         "clientMessage" = client_message,
                         "signer"        = signer,
@@ -67,6 +72,7 @@ impl Decode {
                         misbehaviour,
                         signer,
                     }) => to_object! {
+                        "type"           = "envelope.client.misbehaviour",
                         "clientId"     = client_id,
                         "misbehaviour" = misbehaviour,
                         "signer"       = signer,
@@ -79,6 +85,7 @@ impl Decode {
                         proof_upgrade_consensus_state,
                         signer,
                     }) => to_object! {
+                        "type"                       = "envelope.client.upgrade",
                         "clientId"                   = client_id,
                         "upgradedClientState"        = upgraded_client_state,
                         "upgradedConsensusState"     = upgraded_consensus_state,
@@ -91,6 +98,7 @@ impl Decode {
                         substitute_client_id,
                         signer,
                     }) => to_object! {
+                        "type"               = "envelope.client.recover",
                         "subjectClientId"    = subject_client_id,
                         "substituteClientId" = substitute_client_id,
                         "signer"             = signer,
@@ -105,6 +113,7 @@ impl Decode {
                         delay_period,
                         signer,
                     }) => to_object! {
+                        "type"         = "envelope.connection.open_init",
                         "clientIdOnA"  = client_id_on_a,
                         "counterparty" = counterparty,
                         "version"      = version,
@@ -126,6 +135,7 @@ impl Decode {
                         proof_consensus_state_of_b,
                         previous_connection_id,
                     }) => to_object! {
+                        "type"                      = "envelope.connection.open_try",
                         "clientIdOnB"               = client_id_on_b,
                         "clientstateOfBOnA"         = client_state_of_b_on_a,
                         "counterparty"              = counterparty,
@@ -153,6 +163,7 @@ impl Decode {
                         signer,
                         proof_consensus_state_of_a,
                     }) => to_object! {
+                        "type"                      = "envelope.connection.open_ack",
                         "connIdOnA"                 = conn_id_on_a,
                         "connIdOnB"                 = conn_id_on_b,
                         "clientStateOfAOnB"         = client_state_of_a_on_b,
@@ -171,6 +182,7 @@ impl Decode {
                         proof_height_on_a,
                         signer,
                     }) => to_object! {
+                        "type"            = "envelope.connection.open_confirm",
                         "connIdOnB"       = conn_id_on_b,
                         "proofConnEndOnA" = proof_conn_end_on_a,
                         "proofHeightOnA"  = proof_height_on_a,
@@ -187,6 +199,7 @@ impl Decode {
                         signer,
                         version_proposal,
                     }) => to_object! {
+                        "type"              = "envelope.channel.open_init",
                         "portIdOnA"         = port_id_on_a,
                         "connectionHopsOnA" = connection_hops_on_a,
                         "portIdOnB"         = port_id_on_b,
@@ -206,6 +219,7 @@ impl Decode {
                         signer,
                         version_proposal,
                     }) => to_object! {
+                        "type"                = "envelope.channel.open_try",
                         "portIdOnB"           = port_id_on_b,
                         "connectionHopsOnB"   = connection_hops_on_b,
                         "portIdOnA"           = port_id_on_a,
@@ -226,6 +240,7 @@ impl Decode {
                         proof_height_on_b,
                         signer,
                     }) => to_object! {
+                        "type"            = "envelope.channel.open_ack",
                         "portIdOnA"       = port_id_on_a,
                         "chanIdOnB"       = chan_id_on_a,
                         "chanIdOnB"       = chan_id_on_b,
@@ -241,6 +256,7 @@ impl Decode {
                         proof_height_on_a,
                         signer,
                     }) => to_object! {
+                        "type"            = "envelope.channel.open_confirm",
                         "portIdOnB"       = port_id_on_b,
                         "chanIdOnB"       = chan_id_on_b,
                         "proofChanEndOnA" = proof_chan_end_on_a,
@@ -252,6 +268,7 @@ impl Decode {
                         chan_id_on_a,
                         signer,
                     }) => to_object! {
+                        "type"      = "envelope.channel.close_init",
                         "portIdOnA" = port_id_on_a,
                         "chanIdOnA" = chan_id_on_a,
                         "signer"    = signer,
@@ -263,6 +280,7 @@ impl Decode {
                         proof_height_on_a,
                         signer,
                     }) => to_object! {
+                        "type"            = "envelope.channel.close_confirm",
                         "portIdOnB"       = port_id_on_b,
                         "chanIdOnB"       = chan_id_on_b,
                         "proofChanEndOnA" = proof_chan_end_on_a,
@@ -278,6 +296,7 @@ impl Decode {
                         proof_height_on_a,
                         signer,
                     }) => to_object! {
+                        "type"               = "envelope.packet.recv",
                         "packet"             = packet,
                         "proofCommitmentOnA" = proof_commitment_on_a,
                         "proofHeightOnA"     = proof_height_on_a,
@@ -290,6 +309,7 @@ impl Decode {
                         proof_height_on_b,
                         signer,
                     }) => to_object! {
+                        "type"            = "envelope.packet.ack",
                         "packet"          = packet,
                         "acknowledgement" = acknowledgement,
                         "proofAckedOnB"   = proof_acked_on_b,
@@ -303,6 +323,7 @@ impl Decode {
                         proof_height_on_b,
                         signer,
                     }) => to_object! {
+                        "type"               = "envelope.packet.timeout",
                         "packet"             = packet,
                         "nextSeqRecvOnB"     = next_seq_recv_on_b,
                         "proofUnreceivedOnB" = proof_unreceived_on_b,
@@ -317,6 +338,7 @@ impl Decode {
                         proof_height_on_b,
                         signer,
                     }) => to_object! {
+                        "type"               = "envelope.packet.timeout_on_close",
                         "packet"             = packet,
                         "nextSeqRecvOnB"     = next_seq_recv_on_b,
                         "proofUnreceivedOnB" = proof_unreceived_on_b,
@@ -340,6 +362,7 @@ impl Decode {
                     transfer,
                 } = *boxed_message;
                 to_object! {
+                    "type"    = "transfer",
                     "message" = to_object! {
                         "portIdOnA"           = port_id_on_a,
                         "chanIdOnA"           = chan_id_on_a,
@@ -363,6 +386,7 @@ impl Decode {
                     transfer,
                 } = message;
                 to_object! {
+                    "type"    = "nft_transfer",
                     "message" = to_object! {
                         "portIdOnA"           = port_id_on_a,
                         "chanIdOnA"           = chan_id_on_a,
@@ -385,6 +409,12 @@ pub trait ToJS {
 impl ToJS for () {
     fn to_js (&self) -> Result<JsValue, Error> {
         Ok(JsValue::UNDEFINED)
+    }
+}
+
+impl ToJS for &str {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(self.to_string()))
     }
 }
 
@@ -675,6 +705,6 @@ impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TracePath {
 
 impl ToJS for namada_sdk::ibc::primitives::proto::Any {
     fn to_js (&self) -> Result<JsValue, Error> {
-        todo!()
+        Ok(JsValue::UNDEFINED) // TODO
     }
 }

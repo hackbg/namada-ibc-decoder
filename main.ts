@@ -37,7 +37,9 @@ export class StreamingIBCDecoder {
     return StreamingIBCDecoder.decoder
   }
 
-  counter = 0
+  total   = 0
+  decoded = 0
+  failed  = 0
 
   async run () {
     await StreamingIBCDecoder.init()
@@ -62,15 +64,17 @@ export class StreamingIBCDecoder {
     for (const i in txsections) {
       const section = txsections[i]
       if (next_is_ibc && (section.type === 'Data')) {
-        this.counter++
+        this.total++
         const bin = decodeHex(txsections[i].data)
-        const prefix = `IBC#${this.counter}: ${txHash}_${i}: ${bin.length}b:`
+        const prefix = `IBC#${this.total}: ${txHash}_${i}: ${bin.length}b:`
         try {
           const ibc = Decode.ibc(bin)
           console.log('🟢', prefix, ibc)
+          this.decoded++
         } catch (e: any) {
           console.error('🔴', e)
           console.error('🔴', `${prefix} decode failed ${e.message}`)
+          this.failed++
         }
       }
       next_is_ibc = (section.type === 'Code' && section.tag === 'tx_ibc.wasm')
@@ -78,7 +82,15 @@ export class StreamingIBCDecoder {
   }
 }
 
-if (import.meta.main) new StreamingIBCDecoder().run()
+if (import.meta.main) {
+  const decoder = new StreamingIBCDecoder()
+  await decoder.run()
+  console.log({
+    total:   decoder.total,
+    decoded: decoder.decoded,
+    failed:  decoder.failed,
+  })
+}
 
 async function runWithConnectionPool (callback: (pool: DatabasePool)=>unknown) {
   const url = Deno.env.get("KANEK6AN") || 'localhost:5432'

@@ -4,9 +4,9 @@ export class Decode {
   free(): void;
   /**
    * @param {Uint8Array} source
-   * @returns {string}
+   * @returns {object}
    */
-  static ibc(source: Uint8Array): string;
+  static ibc(source: Uint8Array): object;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -17,6 +17,11 @@ export interface InitOutput {
   readonly decode_ibc: (a: number) => Array;
   readonly __wbindgen_export_0: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
+  readonly __wbindgen_exn_store: (a: number) => void;
+  readonly __externref_table_alloc: () => number;
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_start: () => void;
 }
 
