@@ -562,11 +562,11 @@ impl ToJS for namada_sdk::ibc::core::channel::types::Version {
 
 impl ToJS for namada_sdk::ibc::primitives::Signer {
     fn to_js (&self) -> Result<JsValue, Error> {
-        use namada_sdk::borsh::BorshSerializeExt;
-        let bytes = self.serialize_to_vec();
-        let array = Uint8Array::new_with_length(bytes.len() as u32);
-        array.copy_from(bytes.as_slice());
-        Ok(JsValue::from(array))
+        //use namada_sdk::borsh::BorshSerializeExt;
+        //let bytes = self.serialize_to_vec();
+        //let array = Uint8Array::new_with_length(bytes.len() as u32);
+        //array.copy_from(bytes.as_slice());
+        Ok(JsValue::from(self.as_ref().to_string()))
     }
 }
 
@@ -584,7 +584,7 @@ impl ToJS for namada_sdk::ibc::core::connection::types::version::Version {
     fn to_js (&self) -> Result<JsValue, Error> {
         use namada_sdk::borsh::BorshSerialize;
         let mut bytes: Vec<u8> = vec![];
-        self.serialize(&mut bytes.as_mut_slice());
+        self.serialize(&mut bytes.as_mut_slice()).map_err(|e|Error::new(&format!("{e}")))?;
         let array = Uint8Array::new_with_length(bytes.len() as u32);
         array.copy_from(bytes.as_slice());
         Ok(JsValue::from(array))
@@ -705,6 +705,9 @@ impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TracePath {
 
 impl ToJS for namada_sdk::ibc::primitives::proto::Any {
     fn to_js (&self) -> Result<JsValue, Error> {
-        Ok(JsValue::UNDEFINED) // TODO
+        Ok(JsValue::from(to_object! {
+            "typeUrl" = self.type_url,
+            "value"   = self.value,
+        }))
     }
 }
