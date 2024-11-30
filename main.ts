@@ -41,6 +41,8 @@ export class StreamingIBCDecoder {
   decoded = 0
   failed  = 0
 
+  typeUrls = new Set()
+
   async run () {
     await StreamingIBCDecoder.init()
     return await runWithConnectionPool((pool: DatabasePool)=>
@@ -68,7 +70,10 @@ export class StreamingIBCDecoder {
         const bin = decodeHex(txsections[i].data)
         const prefix = `IBC#${this.total}: ${txHash}_${i}: ${bin.length}b:`
         try {
-          const ibc = Decode.ibc(bin)
+          const ibc: any = Decode.ibc(bin)
+          if (ibc?.clientMessage?.typeUrl) {
+            this.typeUrls.add(ibc?.clientMessage?.typeUrl)
+          }
           console.log('🟢', prefix, ibc)
           this.decoded++
         } catch (e: any) {
@@ -86,9 +91,10 @@ if (import.meta.main) {
   const decoder = new StreamingIBCDecoder()
   await decoder.run()
   console.log({
-    total:   decoder.total,
-    decoded: decoder.decoded,
-    failed:  decoder.failed,
+    total:    decoder.total,
+    decoded:  decoder.decoded,
+    failed:   decoder.failed,
+    typeUrls: decoder.typeUrls,
   })
 }
 

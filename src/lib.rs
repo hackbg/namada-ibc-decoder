@@ -705,9 +705,59 @@ impl ToJS for namada_sdk::ibc::apps::nft_transfer::types::TracePath {
 
 impl ToJS for namada_sdk::ibc::primitives::proto::Any {
     fn to_js (&self) -> Result<JsValue, Error> {
-        Ok(JsValue::from(to_object! {
-            "typeUrl" = self.type_url,
-            "value"   = self.value,
+        use namada_sdk::ibc::primitives::proto::Protobuf;
+        use namada_sdk::ibc::clients::tendermint::types::Header;
+        Ok(JsValue::from(match self.type_url.as_str() {
+            "/ibc.lightclients.tendermint.v1.Header" => {
+                let value: Header = Protobuf::<Self>::decode(self.value.as_slice())
+                    .map_err(|e|Error::new(&format!("{e}")))?;
+                to_object! {
+                    "typeUrl" = self.type_url,
+                    "value"   = value,
+                }
+            },
+            _ => to_object! {
+                "typeUrl" = self.type_url,
+                "value"   = self.value,
+            }
         }))
+    }
+}
+
+impl ToJS for namada_sdk::ibc::clients::tendermint::types::Header {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "signedHeader"            = self.signed_header,
+            "validatorSet"            = self.validator_set,
+            "trustedHeight"           = self.trusted_height,
+            "trustedNextValidatorSet" = self.trusted_next_validator_set,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::signed_header::SignedHeader {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        Ok(JsValue::from(to_object! {
+            "header" = self.header,
+            "commit" = self.commit,
+        }))
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::Header {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        todo!()
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::block::Commit {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        todo!()
+    }
+}
+
+impl ToJS for namada_sdk::tendermint::validator::Set {
+    fn to_js (&self) -> Result<JsValue, Error> {
+        todo!()
     }
 }
