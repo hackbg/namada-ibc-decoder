@@ -713,7 +713,7 @@ impl ToJS for namada_sdk::ibc::primitives::proto::Any {
     fn to_js (&self) -> Result<JsValue, Error> {
         use namada_sdk::ibc::primitives::proto::Protobuf;
         use namada_sdk::ibc::clients::tendermint::types::Header;
-        Ok(JsValue::from(match self.type_url.as_str() {
+        Ok(JsValue::from(/*match self.type_url.as_str() {
             "/ibc.lightclients.tendermint.v1.Header" => {
                 let value: Header = Protobuf::<Self>::decode(self.value.as_slice())
                     .map_err(|e|Error::new(&format!("{e}")))?;
@@ -722,11 +722,11 @@ impl ToJS for namada_sdk::ibc::primitives::proto::Any {
                     "value"   = value,
                 }
             },
-            _ => to_object! {
+            _ => */to_object! {
                 "typeUrl" = self.type_url,
                 "value"   = self.value,
-            }
-        }))
+            }/*
+        }*/))
     }
 }
 

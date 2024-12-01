@@ -37,11 +37,12 @@ export class StreamingIBCDecoder {
     return StreamingIBCDecoder.decoder
   }
 
-  total   = 0
-  decoded = 0
-  failed  = 0
-
-  typeUrls = new Set()
+  total    = 0
+  decoded  = 0
+  failed   = 0
+  typeUrls: Set<string> = new Set()
+  ibcTypes: Record<string, number> = {}
+  errors:   Array<[string, any]> = []
 
   async run () {
     await StreamingIBCDecoder.init()
@@ -70,13 +71,20 @@ export class StreamingIBCDecoder {
         const bin = decodeHex(txsections[i].data)
         const prefix = `IBC#${this.total}: ${txHash}_${i}: ${bin.length}b:`
         try {
-          const ibc: any = Decode.ibc(bin)
+          const ibc = Decode.ibc(bin) as {
+            type: string,
+            clientMessage?: { typeUrl?: string }
+            [k: string]: unknown
+          }
+          this.ibcTypes[ibc.type] ??= 0
+          this.ibcTypes[ibc.type]++
           if (ibc?.clientMessage?.typeUrl) {
             this.typeUrls.add(ibc?.clientMessage?.typeUrl)
           }
           console.log('🟢', prefix, ibc)
           this.decoded++
         } catch (e: any) {
+          this.errors.push([prefix, e])
           console.error('🔴', e)
           console.error('🔴', `${prefix} decode failed ${e.message}`)
           this.failed++
@@ -94,7 +102,9 @@ if (import.meta.main) {
     total:    decoder.total,
     decoded:  decoder.decoded,
     failed:   decoder.failed,
+    ibcTypes: decoder.ibcTypes,
     typeUrls: decoder.typeUrls,
+    errors:   decoder.errors,
   })
 }
 
