@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-env --allow-net --allow-read=.env,pkg
 import "jsr:@std/dotenv/load"
-import { decodeHex, createPool, sql, createPgDriverFactory } from './deps.ts'
+import { encodeHex, decodeHex, createPool, sql, createPgDriverFactory } from './deps.ts'
 import type { DatabasePool } from './deps.ts'
 import initDecoder, { Decode } from './pkg/namada_ibc_decoder.js'
 
@@ -65,30 +65,34 @@ export class StreamingIBCDecoder {
     for (const i in txsections) {
       const section = txsections[i]
       if (next_is_ibc && (section.type === 'Data')) {
-        this.total++
-        const bin = decodeHex(txsections[i].data)
-        const prefix = `IBC#${this.total}: ${txHash}_${i}: ${bin.length}b:`
-        try {
-          const ibc = Decode.ibc(bin) as {
-            type: string,
-            clientMessage?: { typeUrl?: string }
-            [k: string]: unknown
-          }
-          this.ibcTypes[ibc.type] ??= 0
-          this.ibcTypes[ibc.type]++
-          if (ibc?.clientMessage?.typeUrl) {
-            this.typeUrls.add(ibc?.clientMessage?.typeUrl)
-          }
-          console.log('🟢', prefix, ibc)
-          this.decoded++
-        } catch (e: any) {
-          this.errors.push([prefix, e])
-          console.error('🔴', e)
-          console.error('🔴', `${prefix} decode failed ${e.message}`)
-          this.failed++
-        }
+        this.decodeIbc(decodeHex(txsections[i].data), txHash, i)
       }
       next_is_ibc = (section.type === 'Code' && section.tag === 'tx_ibc.wasm')
+    }
+  }
+
+  decodeIbc (bin: Uint8Array, txHash: string, i: string) {
+    const prefix = `IBC#${this.total}: ${txHash}_${i}: ${bin.length}b:`
+    this.total++
+    try {
+      const ibc = Decode.ibc(bin) as {
+        type: string,
+        clientMessage?: { typeUrl?: string }
+        [k: string]: unknown
+      }
+      this.ibcTypes[ibc.type] ??= 0
+      this.ibcTypes[ibc.type]++
+      if (ibc?.clientMessage?.typeUrl) {
+        this.typeUrls.add(ibc?.clientMessage?.typeUrl)
+      }
+      console.log('🟢', prefix, JSON.stringify(ibc, ibcSerializer, 2))
+      //console.log(JSON.stringify(ibc, ibcSerializer))
+      this.decoded++
+    } catch (e: any) {
+      this.errors.push([prefix, e])
+      console.error('🔴', e)
+      console.error('🔴', `${prefix} decode failed ${e.message}`)
+      this.failed++
     }
   }
 }
@@ -104,6 +108,12 @@ if (import.meta.main) {
     typeUrls: decoder.typeUrls,
     errors:   decoder.errors,
   })
+}
+
+function ibcSerializer (key: any, value: any) {
+  if (value instanceof Uint8Array) return encodeHex(value)
+  if (typeof value === 'bigint') return String(value)
+  return value
 }
 
 async function runWithConnectionPool (callback: (pool: DatabasePool)=>unknown) {
