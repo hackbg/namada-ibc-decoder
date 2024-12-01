@@ -1,10 +1,8 @@
 #!/usr/bin/env -S deno run --allow-env --allow-net --allow-read=.env,pkg
-import "jsr:@std/dotenv/load";
-import { decodeHex } from "jsr:@std/encoding/hex";
-import { createPool, sql } from 'npm:slonik';
-import type { DatabasePool } from 'npm:slonik';
-import { createPgDriverFactory } from 'npm:@slonik/pg-driver';
-import initDecoder, { Decode } from './pkg/namada_ibc_decoder.js';
+import "jsr:@std/dotenv/load"
+import { decodeHex, createPool, sql, createPgDriverFactory } from './deps.ts'
+import type { DatabasePool } from './deps.ts'
+import initDecoder, { Decode } from './pkg/namada_ibc_decoder.js'
 
 export class StreamingIBCDecoder {
 

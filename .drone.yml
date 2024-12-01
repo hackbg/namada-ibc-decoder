@@ -1,0 +1,43 @@
+---
+kind: pipeline
+type: docker
+name: build
+trigger: { event: [ push ] }
+volumes: [ { name: cache, host: { path: /data/ci-cache-docker } } ]
+steps:
+- name: git
+  image: alpine/git:latest
+  commands:
+  - echo $HOME
+  - ls -al $HOME
+  - printf $(git rev-parse --abbrev-ref HEAD) > BRANCH
+  - cat BRANCH
+  - git submodule update --init --recursive --depth 1
+- name: build
+  image: docker:24.0.7-alpine3.18
+  volumes: [ { name: cache, path: /cache/docker } ]
+  privileged: true
+  environment:
+    NAME: "oci.hack.bg/undexer-ibc-decoder"
+    USER: { from_secret: "oci-user" }
+    PASS: { from_secret: "oci-pass" }
+    MIRROR: "http://127.0.0.1:5000"
+    DOCKER_DATA: "/cache/docker"
+    DOCKER_HOST: "tcp://127.0.0.1:2375"
+  commands:
+  # Launch Docker daemon
+  - nohup dockerd --tls=false --dns 1.1.1.1 --rootless=true --bridge=none --iptables=false --data-root "$DOCKER_DATA" --host="$DOCKER_HOST" --registry-mirror "$MIRROR" &
+  - sleep 10
+  - docker version; docker info
+  - echo "\nLooking around...\n"; whoami; pwd; ls -al
+  - echo "$PASS" | docker login -u "$USER" --password-stdin https://oci.hack.bg
+
+  # Build image for IBC decoder
+  - export IMAGE="$NAME:$(cat BRANCH | tr '/' '_' | tr '\n' ' ')"
+  - 'printf "Name: $NAME\nImage: $IMAGE\n"'
+
+  # Pull previous layers from cache
+  - docker pull "$IMAGE" || true
+
+  # Default image
+  - docker build --push --network=host --cache-to=type=inline --cache-from="$IMAGE" -f Dockerfile -t "$IMAGE" .
