@@ -16,7 +16,7 @@ ARG IBC_DECODER_VERSION unknown
 ENV IBC_DECODER_VERSION ${IBC_DECODER_VERSION}
 ADD deno.json deno.lock deps.ts /
 RUN deno cache --import-map=/deno.json --lock=/deno.lock deps.ts
-COPY --from=wasm /build/ibc-decoder/pkg /
+COPY --from=wasm /build/ibc-decoder/pkg /pkg
 ADD ibc-*.ts main.ts /
 RUN deno check *.ts
 ENTRYPOINT [ "/bin/bash" ]
