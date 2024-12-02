@@ -12,6 +12,8 @@ RUN PATH=$PATH:~/.cargo/bin wasm-pack build --release --target web \
  && rm -rf target
 
 FROM denoland/deno:2.1.2
+ARG IBC_DECODER_VERSION unknown
+ENV IBC_DECODER_VERSION ${IBC_DECODER_VERSION}
 ADD deno.json deno.lock deps.ts /
 RUN deno cache --import-map=/deno.json --lock=/deno.lock deps.ts
 ADD main.ts /

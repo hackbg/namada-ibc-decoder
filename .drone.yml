@@ -33,11 +33,8 @@ steps:
   - echo "$PASS" | docker login -u "$USER" --password-stdin https://oci.hack.bg
 
   # Build image for IBC decoder
-  - export IMAGE="$NAME:$(cat BRANCH | tr '/' '_' | tr '\n' ' ')"
+  - export VERSION="$(date -u +%Y%m%d%H%M%S).0.0-$(git rev-parse --short HEAD)-$DRONE_BUILD_NUMBER"
+  - export IMAGE="$NAME:$VERSION"
   - 'printf "Name: $NAME\nImage: $IMAGE\n"'
-
-  # Pull previous layers from cache
   - docker pull "$IMAGE" || true
-
-  # Default image
-  - docker build --push --network=host --cache-to=type=inline --cache-from="$IMAGE" -f Dockerfile -t "$IMAGE" .
+  - docker build --push --network=host --cache-to=type=inline --cache-from="$IMAGE" -f Dockerfile --build-arg "IBC_DECODER_VERSION=$VERSION" -t "$IMAGE" .

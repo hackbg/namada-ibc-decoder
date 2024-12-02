@@ -4,28 +4,41 @@ import { encodeHex, decodeHex, createPool, sql, createPgDriverFactory } from './
 import type { DatabasePool } from './deps.ts'
 import initDecoder, { Decode } from './pkg/namada_ibc_decoder.js'
 
+/** SemVer-compatible (actually TrunkVer) version identifier for this service.
+  * This is stored in the database alongside the decoded data. */
+const VERSION = Deno.env.get('IBC_DECODER_VERSION') || 'unspecified'
+
+/** Open a PostgreSQL connection pool with `slonik` and pass it to a callback.
+  * When the callback is done executing, close the connection pool. */
+async function runWithConnectionPool (callback: (pool: DatabasePool)=>unknown) {
+  const url = Deno.env.get("IBC_DECODER_DB") || 'localhost:5432'
+  const driverFactory = createPgDriverFactory()
+  const statementTimeout = 'DISABLE_TIMEOUT'
+  const pool = await createPool(url, { driverFactory, statementTimeout })
+  pool.on('error', (error: unknown) => { console.error(error); Deno.exit(1) })
+  await callback(pool)
+  await pool.end()
+}
+
 export class StreamingIBCDecoder {
 
-  static query = sql.unsafe`
-    with ids as (
-      select
-        "txHash",
-        jsonb_path_query("txData", '$.data.content[*]')
-          as txContent,
-        "txData"->'data'->'sections'
-          as txSections
-      from
-        transactions
-    )
-      select
-        *
-      from
-        ids
-      where
-        (txContent->>'type')::text like '%ibc%';
-  `
+  constructor (events: Record<string, ()=>unknown> = {}) {
+    this.version = VERSION
+    this.stats   = new Stats()
+    this.events  = new EventTarget()
+    for (const [event, handler] of Object.entries(events)) {
+      this.events.addEventListener(event, handler)
+    }
+  }
 
-  static decoder: { decode_ibc: (bin: Uint8Array)=>object }
+  version: string
+  events:  EventTarget
+  stats:   Stats
+
+  async run () {
+    await StreamingIBCDecoder.init()
+    return await runWithConnectionPool(this.onPool)
+  }
 
   static async init () {
     if (!StreamingIBCDecoder.decoder) {
@@ -35,31 +48,26 @@ export class StreamingIBCDecoder {
     return StreamingIBCDecoder.decoder
   }
 
-  total    = 0
-  decoded  = 0
-  failed   = 0
-  typeUrls: Set<string> = new Set()
-  ibcTypes: Record<string, number> = {}
-  errors:   Array<[string, any]> = []
+  static decoder: { decode_ibc: (bin: Uint8Array)=>object }
 
-  async run () {
-    await StreamingIBCDecoder.init()
-    return await runWithConnectionPool((pool: DatabasePool)=>
-      pool.stream(StreamingIBCDecoder.query, (stream)=>
-        stream.on('data', this.onData)
-      )
-    )
+  onPool = (pool: DatabasePool) => {
+    return pool.stream(StreamingIBCDecoder.query, this.onStream)
   }
 
-  onData = (data: {
-    data: {
-      txHash:     string,
-      txsections: Array<{
-        type:     string,
-        tag:      string,
-        data:     string,
-      }> }
-  }) => {
+  static query = sql.unsafe`
+    with ids as (
+      select
+        "txHash",
+        jsonb_path_query("txData", '$.data.content[*]') as txContent,
+        "txData"->'data'->'sections' as txSections
+      from transactions
+    ) select * from ids where (txContent->>'type')::text like '%ibc%';`
+
+  onStream = (stream: Stream) => {
+    return stream.on('data', this.onData)
+  }
+
+  onData = (data: TX) => {
     const { txHash, txsections } = data.data
     let next_is_ibc = false
     for (const i in txsections) {
@@ -67,61 +75,67 @@ export class StreamingIBCDecoder {
       if (next_is_ibc && (section.type === 'Data')) {
         this.decodeIbc(decodeHex(txsections[i].data), txHash, i)
       }
-      next_is_ibc = (section.type === 'Code' && section.tag === 'tx_ibc.wasm')
+      next_is_ibc = (section.type === 'Code') && (section.tag === 'tx_ibc.wasm')
     }
   }
 
   decodeIbc (bin: Uint8Array, txHash: string, i: string) {
-    const prefix = `IBC#${this.total}: ${txHash}_${i}: ${bin.length}b:`
-    this.total++
+    const prefix = `IBC#${this.stats.total}: ${txHash}_${i}: ${bin.length}b:`
+    this.stats.total++
     try {
-      const ibc = Decode.ibc(bin) as {
-        type: string,
-        clientMessage?: { typeUrl?: string }
-        [k: string]: unknown
-      }
-      this.ibcTypes[ibc.type] ??= 0
-      this.ibcTypes[ibc.type]++
-      if (ibc?.clientMessage?.typeUrl) {
-        this.typeUrls.add(ibc?.clientMessage?.typeUrl)
-      }
-      console.log('🟢', prefix, JSON.stringify(ibc, ibcSerializer, 2))
-      //console.log(JSON.stringify(ibc, ibcSerializer))
-      this.decoded++
-    } catch (e: any) {
-      this.errors.push([prefix, e])
-      console.error('🔴', e)
-      console.error('🔴', `${prefix} decode failed ${e.message}`)
-      this.failed++
+      this.decodeIbcSuccess(prefix, Decode.ibc(bin) as DecodedIBC)
+    } catch (e: unknown) {
+      this.decodeIbcFailure(prefix, e)
     }
+  }
+
+  decodeIbcSuccess (prefix: string, ibc: DecodedIBC) {
+    this.stats.ibcDecoded(ibc.type, ibc?.clientMessage?.typeUrl)
+    console.log('🟢', prefix, JSON.stringify(ibc, StreamingIBCDecoder.serializer, 2))
+  }
+
+  static serializer (_: unknown, value: unknown) {
+    if (value instanceof Uint8Array) return encodeHex(value)
+    if (typeof value === 'bigint') return String(value)
+    return value
+  }
+
+  decodeIbcFailure (prefix: string, e: unknown) {
+    this.stats.ibcDecodeFailed(prefix, e)
+    console.error('🔴', e)
+    console.error('🔴', `${prefix} decode failed ${(e as { message: string }).message}`)
   }
 }
 
-if (import.meta.main) {
-  const decoder = new StreamingIBCDecoder()
-  await decoder.run()
-  console.log({
-    total:    decoder.total,
-    decoded:  decoder.decoded,
-    failed:   decoder.failed,
-    ibcTypes: decoder.ibcTypes,
-    typeUrls: decoder.typeUrls,
-    errors:   decoder.errors,
-  })
+export class Stats {
+  total    = 0
+  decoded  = 0
+  failed   = 0
+  typeUrls: Set<string> = new Set()
+  ibcTypes: Record<string, number> = {}
+  errors:   Array<[string, unknown]> = []
+
+  ibcEncountered () {
+    this.total++
+  }
+  ibcDecoded (type: string, typeUrl?: string) {
+    this.ibcTypes[type] ??= 0
+    this.ibcTypes[type]++
+    if (typeUrl) {
+      this.typeUrls.add(typeUrl)
+    }
+    this.decoded++
+  }
+  ibcDecodeFailed (prefix: string, error: unknown) {
+    this.errors.push([prefix, error])
+    this.failed++
+  }
 }
 
-function ibcSerializer (key: any, value: any) {
-  if (value instanceof Uint8Array) return encodeHex(value)
-  if (typeof value === 'bigint') return String(value)
-  return value
-}
+interface Stream { on: (event: string, cb: (data: TX)=>unknown)=>unknown }
 
-async function runWithConnectionPool (callback: (pool: DatabasePool)=>unknown) {
-  const url = Deno.env.get("KANEK6AN") || 'localhost:5432'
-  const driverFactory = createPgDriverFactory()
-  const statementTimeout = 'DISABLE_TIMEOUT'
-  const pool = await createPool(url, { driverFactory, statementTimeout })
-  pool.on('error', (error: unknown) => { console.error(error); Deno.exit(1) })
-  await callback(pool)
-  await pool.end()
-}
+interface DecodedIBC { type: string, clientMessage?: { typeUrl?: string }, [k: string]: unknown }
+
+interface TX { data: { txHash: string, txsections: Array<TXSection> } }
+
+interface TXSection { type: string, tag: string, data: string, }
