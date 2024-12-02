@@ -44,11 +44,16 @@ export async function updateDecodeResult (
 export async function queryContentIndex (detail: IBCDecodeData<IBCReader>) {
   const selectQuery = sql.unsafe`select * from transactions where "txHash" = ${detail.txHash}`
   const { txData: { data } } = await detail.context.pool!.one(selectQuery)
-  const updateIndex = findContentIndex(data, detail.binary)
+  const updateIndex = findContentIndex(detail.blockHeight, detail.txHash, data, detail.binary)
   return updateIndex
 }
 
-export function findContentIndex (data: TXData, binary: Uint8Array) {
+export function findContentIndex (
+  blockHeight: number,
+  txHash:      string,
+  data:        TXData,
+  binary:      Uint8Array
+) {
   // Warning!!! This will fail if the TX section order
   // deviates from "...Code1, Data1... Code2, Data2..."
   // At time of writing, @fadroma/namada makes the same assumption.
@@ -63,11 +68,11 @@ export function findContentIndex (data: TXData, binary: Uint8Array) {
     }
   }
   if (contentIndex === -1) {
-    throw new Error('Could not find matching contentIndex')
+    throw new Error(`Could not find matching contentIndex for tx ${txHash} in ${blockHeight}`)
   }
   const content = data.content[contentIndex]
   if (content?.type !== 'tx_ibc.wasm') {
-    throw new Error(`Could not find tx_ibc.wasm at contentIndex ${contentIndex}`)
+    throw new Error(`Could not find tx_ibc.wasm at contentIndex ${contentIndex} for tx ${txHash} in ${blockHeight}`)
   }
   return contentIndex
 }

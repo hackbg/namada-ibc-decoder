@@ -11,21 +11,24 @@ export const txContentColumn = sql.fragment`
 export const txSectionsColumn = sql.fragment`
   "txData"->'data'->'sections' as txSections
 `
-export const withIbcTransactionsSubQuery = sql.fragment`
-  with ids as (
-    select "blockHeight", "txHash", ${txContentColumn}, ${txSectionsColumn} from transactions
-  )
+export const withIbcTransactionsSubQuery = sql.fragment`with ibc_txs as (select
+  "blockHeight",
+  "txHash",
+  ${txContentColumn},
+  ${txSectionsColumn}
+  from transactions)`
+export const hasIbcTransactionClause = sql.fragment`
+  (txcontent->>'type')::text = 'tx_ibc.wasm'
 `
-export const hasIbcTransactionQuery = sql.fragment`
-  (txContent->>'type')::text = 'tx_ibc.wasm'
-`
-export const hasUndecodedIbcTransactionQuery = sql.fragment`
-  (txContent->'data'->>'decoderVersion')::text != ${Config.IBC_DECODER_VERSION}
-`
+export const hasUndecodedIbcTransactionClause = sql.fragment`(
+  (txcontent->'data'->>'decoderVersion' is NULL)
+  or
+  (txcontent->'data'->>'decoderVersion' != ${Config.IBC_DECODER_VERSION})
+)`
 export const allUndecodedIbcTransactionsQuery = sql.unsafe`
-  ${withIbcTransactionsSubQuery} select * from ids
-    where ${hasIbcTransactionQuery}
-    order by "blockHeight" desc;
+  ${withIbcTransactionsSubQuery} select * from ibc_txs
+  where ${hasIbcTransactionClause} and ${hasUndecodedIbcTransactionClause}
+  order by "blockHeight" desc;
 `
 
 export class IBCReader extends IBCDecoder {
@@ -42,7 +45,7 @@ export class IBCReader extends IBCDecoder {
     while (true) {
       console.log('🚀 Querying all undecoded IBC transactions...')
       await pool.stream(allUndecodedIbcTransactionsQuery, this.onStream)
-      const delay = 5000
+      const delay = Config.IBC_DECODER_DELAY
       console.log('⏳ Waiting', delay, 'ms for any new transactions...')
       await new Promise(resolve=>setTimeout(resolve, 5000))
     }
@@ -50,7 +53,10 @@ export class IBCReader extends IBCDecoder {
 
   onStream = (stream: TXStream) => stream.on('data', this.onData)
 
-  onData = (tx: TX) => this.decodeTx(tx)
+  onData = (tx: TX) => {
+    //console.log(tx)
+    return this.decodeTx(tx)
+  }
 
 }
 
@@ -63,43 +69,43 @@ type TXCallback = (data: TX) => unknown
   //static countIbcTransactionsQuery = sql.unsafe`
     //${this.withIbcTransactionsQuery}
     //select count(*) from ids
-      //where ${this.hasIbcTransactionQuery}
+      //where ${hasIbcTransactionClause}
       //order by "blockHeight" desc;
   //`
 
   //static allIbcTransactionsQuery = sql.unsafe`
     //${this.withIbcTransactionsQuery}
     //select * from ids
-      //where ${this.hasIbcTransactionQuery}
+      //where ${hasIbcTransactionClause}
       //order by "blockHeight" desc;
   //`
 
   //static oldestIbcTransactionQuery = sql.unsafe`
     //${this.withIbcTransactionsQuery}
     //select * from ids
-      //where ${this.hasIbcTransactionQuery}
+      //where ${hasIbcTransactionClause}
       //order by "blockHeight" asc limit 1;
   //`
 
   //static latestIbcTransactionQuery = sql.unsafe`
     //${this.withIbcTransactionsQuery}
     //select * from ids
-      //where ${this.hasIbcTransactionQuery}
+      //where ${hasIbcTransactionClause}
       //order by "blockHeight" desc limit 1;
   //`
 
   //static oldestUndecodedIbcTransactionQuery = sql.unsafe`
     //${this.withIbcTransactionsQuery}
     //select * from ids
-      //where ${this.hasIbcTransactionQuery}
-      //and ${this.hasUndecodedIbcTransactionQuery}
+      //where ${hasIbcTransactionClause}
+      //and ${hasUndecodedIbcTransactionClause}
       //order by "blockHeight" asc limit 1;
   //`
 
   //static latestUndecodedIbcTransactionQuery = sql.unsafe`
     //${this.withIbcTransactionsQuery}
     //select * from ids
-      //where ${this.hasIbcTransactionQuery}
-      //and ${this.hasUndecodedIbcTransactionQuery}
+      //where ${hasIbcTransactionClause}
+      //and ${hasUndecodedIbcTransactionClause}
       //order by "blockHeight" desc limit 1;
   //`
