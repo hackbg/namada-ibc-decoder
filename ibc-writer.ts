@@ -34,10 +34,14 @@ export async function updateDecodeResult (
 ) {
   const { context, txHash } = detail
   const updatedData = sql.jsonb({ decoderVersion: Config.IBC_DECODER_VERSION, ...result })
-  const updateQuery = dryRun ? sql.unsafe`
-    select jsonb_set("txData", ${`{data,content,${updateIndex},data}`}, ${updatedData})
-    from transactions where "txHash" = ${txHash}
-  ` : sql.unsafe`${(()=>{throw new Error('todo')})()}`
+  const updateTable = sql.fragment`transactions`
+  const updateField = sql.fragment`"txData"`
+  const updateWhere = sql.fragment`where "txHash" = ${txHash}`
+  const updatePath  = sql.fragment`{data,content,${updateIndex},data}`
+  const updateJson  = sql.fragment`jsonb_set("txData", ${updatePath}, ${updatedData})`
+  const updateQuery = dryRun
+    ? sql.unsafe`select ${updateJson} from ${updateTable} ${updateWhere}`
+    : sql.unsafe`update ${updateTable} set ${updateField} = ${updateJson} ${updateWhere}`
   await context.pool!.one(updateQuery)
 }
 
