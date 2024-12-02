@@ -5,21 +5,43 @@ import { sql } from './deps.ts'
 console.log('Version:', IBCReader.version)
 await IBCReader.initDecoder()
 const reader = new IBCReader({
-  'decode-progress' (event) { event.report() },
+
+  'decode-progress' (event) {
+    event.report()
+  },
+
   async 'decode-success' (event) {
     event.report()
-    await event.detail.context.pool!.query(sql.unsafe`
-      SELECT jsonb_set(field, path, value)
-      FROM transactions WHERE "txHash" = ${event.detail.txHash}
-    `)
+    const {context, txHash, sectionIndex} = event.detail
+    console.log('⏳ Writing result for', txHash, '/', sectionIndex, '...')
+    try {
+      await context.pool!.query(sql.unsafe`
+        SELECT jsonb_set(field, path, value)
+        FROM transactions WHERE "txHash" = ${event.detail.txHash}
+      `)
+      console.log('🟢 Updated', txHash, '/', sectionIndex)
+    } catch (e) {
+      console.error('🔴 Failed to update', txHash, '/', sectionIndex, ':')
+      console.error(e)
+    }
   },
+
   async 'decode-failure' (event) {
     event.report()
-    await event.detail.context.pool!.query(sql.unsafe`
-      SELECT jsonb_set(field, path, value)
-      FROM transactions WHERE "txHash" = ${event.detail.txHash}
-    `)
+    const {context, txHash, sectionIndex} = event.detail
+    console.log('⏳ Writing failure for', txHash, '/', sectionIndex, '...')
+    try {
+      await context.pool!.query(sql.unsafe`
+        SELECT jsonb_set(field, path, value)
+        FROM transactions WHERE "txHash" = ${event.detail.txHash}
+      `)
+      console.log('🟡 Updated', txHash, '/', sectionIndex)
+    } catch (e) {
+      console.error('🔴 Failed to update', txHash, '/', sectionIndex, ':')
+      console.error(e)
+    }
   },
+
 })
 await runWithConnectionPool(reader.run)
 console.log('Errors encountered:')
