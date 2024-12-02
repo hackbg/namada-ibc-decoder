@@ -1,5 +1,6 @@
 import { createPool, createPgDriverFactory } from './deps.ts'
 import type { DatabasePool } from './deps.ts'
+import * as Config from './ibc-config.ts'
 
 /** Open a PostgreSQL connection pool with `slonik` and pass it to a callback.
   * When the callback is done executing, close the connection pool. */
@@ -11,7 +12,7 @@ export async function runWithConnectionPoolUntilEnd <T> (callback: (pool: Databa
 
 /** Open a PostgreSQL connection pool with `slonik` and pass it to a callback. */
 export async function runWithConnectionPool <T> (callback: (pool: DatabasePool)=>T|Promise<T>) {
-  const url = Deno.env.get("IBC_DECODER_DB") || 'localhost:5432'
+  const url = Config.IBC_DECODER_DB
   const driverFactory = createPgDriverFactory()
   const statementTimeout = 'DISABLE_TIMEOUT'
   const pool = await createPool(url, { driverFactory, statementTimeout })

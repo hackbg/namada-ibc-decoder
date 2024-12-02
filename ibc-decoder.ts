@@ -53,10 +53,6 @@ export class IBCDecoder extends IBCCounter {
   logPrefix = (txHash: string, sectionIndex: string, length: number) =>
     `IBC#${this.total}: TX: ${txHash} Section: ${sectionIndex}: ${length}b:`
 
-  /** SemVer-compatible (actually TrunkVer) version identifier for this service.
-    * This is stored in the database alongside the decoded data. */
-  static version = Deno.env.get('IBC_DECODER_VERSION') || '0'
-
   /** Handle to the WASM decoder. */
   static decoder: DecoderWASM
 

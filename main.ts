@@ -2,7 +2,6 @@
 import { runWithConnectionPool } from './ibc-db.ts'
 import { IBCReader } from './ibc-reader.ts'
 import { sql } from './deps.ts'
-console.log('Version:', IBCReader.version)
 await IBCReader.initDecoder()
 const reader = new IBCReader({
 

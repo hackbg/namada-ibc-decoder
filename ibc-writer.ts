@@ -2,9 +2,7 @@ import { sql, encodeHex } from './deps.ts'
 import { IBCReader } from './ibc-reader.ts'
 import { ibcSerialize } from './ibc-events.ts'
 import type { IBCDecodeData, IBCDecodeSuccessData, IBCDecodeFailureData } from './ibc-events.ts'
-
-const decoderVersion = IBCReader.version
-console.log('Decoder version:', decoderVersion)
+import * as Config from './ibc-config.ts'
 
 export async function updateDecodeSuccess (
   detail: IBCDecodeSuccessData<IBCReader>,
@@ -35,7 +33,7 @@ export async function updateDecodeResult (
   dryRun: boolean = true
 ) {
   const { context, txHash } = detail
-  const updatedData = sql.jsonb({ decoderVersion, ...result })
+  const updatedData = sql.jsonb({ decoderVersion: Config.IBC_DECODER_VERSION, ...result })
   const updateQuery = dryRun ? sql.unsafe`
     select jsonb_set("txData", ${`{data,content,${updateIndex},data}`}, ${updatedData})
     from transactions where "txHash" = ${txHash}
