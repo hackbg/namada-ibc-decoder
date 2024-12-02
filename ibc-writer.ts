@@ -61,7 +61,7 @@ export function findContentIndex (
   let contentIndex = -1;
   const encodedBinary = encodeHex(binary)
   for (const section of data.sections) {
-    if (isIBCCodeSection(section)) {
+    if (isCodeSection(section)) {
       contentIndex++
     } else if (isIBCDataSection(section, encodedBinary)) {
       break
@@ -77,10 +77,12 @@ export function findContentIndex (
   return contentIndex
 }
 
-function isIBCCodeSection (section: TXSection) {
-  return (section.type === 'Code') && (section.tag === 'tx_ibc.wasm')
+function isCodeSection (section: TXSection) {
+  return section.type === 'Code'
 }
-
+function isIBCCodeSection (section: TXSection) {
+  return isCodeSection(section) && (section.tag === 'tx_ibc.wasm')
+}
 function isIBCDataSection (section: TXSection, encodedBinary: string) {
   return (section.type === 'Data') && (section.data === encodedBinary)
 }
