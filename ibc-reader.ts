@@ -9,7 +9,7 @@ export class IBCReader extends IBCDecoder {
     this.bindEvents(events)
   }
 
-  onPool = (pool: DatabasePool) => pool.stream(IBCReader.query, this.onStream)
+  run = (pool: DatabasePool) => pool.stream(IBCReader.query, this.onStream)
 
   onStream = (stream: Stream) => stream.on('data', this.onData)
 

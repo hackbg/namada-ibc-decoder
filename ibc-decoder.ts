@@ -13,20 +13,28 @@ export class IBCDecoder extends IBCCounter {
     } catch (e: unknown) {
       this.ibcDecodeFailure(txHash, sectionIndex, bin.length, e as { message: string })
     }
-    this.events.dispatchEvent(new IBCDecodeProgressEvent({...this}))
+    this.events.dispatchEvent(new IBCDecodeProgress({...this}))
   }
 
   ibcDecodeSuccess (txHash: string, sectionIndex: string, length: number, ibc: DecodedIBC) {
     this.trackIbcDecodeSuccess(ibc.type, ibc?.clientMessage?.typeUrl)
-    this.events.dispatchEvent(new IBCDecodeSuccessEvent({
-      total: this.total, txHash, sectionIndex, length, ibc,
+    this.events.dispatchEvent(new IBCDecodeSuccess({
+      context: this,
+      txHash,
+      sectionIndex,
+      length,
+      ibc,
     }))
   }
 
   ibcDecodeFailure (txHash: string, sectionIndex: string, length: number, err: {message: string}) {
     this.trackIbcDecodeFailure(this.logPrefix(txHash, sectionIndex, length), err)
-    this.events.dispatchEvent(new IBCDecodeFailureEvent({
-      total: this.total, txHash, sectionIndex, length, error: err
+    this.events.dispatchEvent(new IBCDecodeFailure({
+      context: this,
+      txHash,
+      sectionIndex,
+      length,
+      error: err
     }))
   }
 
@@ -69,13 +77,13 @@ interface DecoderWASM {decode_ibc: (bin: Uint8Array)=>object}
 
 interface DecodedIBC {type: string, clientMessage?: { typeUrl?: string }, [k: string]: unknown}
 
-interface IBCDecodeEventData {total: number, txHash: string, sectionIndex: string, length: number}
+interface IBCDecodeData<T extends IBCCounter> {context: T, txHash: string, sectionIndex: string, length: number}
 
-interface IBCDecodeSuccessEventData extends IBCDecodeEventData {ibc: DecodedIBC}
+interface IBCDecodeSuccessData<T extends IBCCounter> extends IBCDecodeData<T> {ibc: DecodedIBC}
 
-interface IBCDecodeFailureEventData extends IBCDecodeEventData {error: { message: string }}
+interface IBCDecodeFailureData<T extends IBCCounter> extends IBCDecodeData<T> {error: { message: string }}
 
-export class IBCDecodeProgressEvent extends CustomEvent<IBCCounterData> {
+export class IBCDecodeProgress extends CustomEvent<IBCCounterData> {
   constructor (detail: IBCCounterData) {
     super('decode-progress', { detail })
   }
@@ -90,14 +98,14 @@ export class IBCDecodeProgressEvent extends CustomEvent<IBCCounterData> {
   }
 }
 
-export class IBCDecodeSuccessEvent extends CustomEvent<IBCDecodeSuccessEventData> {
-  constructor (detail: IBCDecodeSuccessEventData) {
+export class IBCDecodeSuccess<T extends IBCCounter> extends CustomEvent<IBCDecodeSuccessData<T>> {
+  constructor (detail: IBCDecodeSuccessData<T>) {
     super('decode-success', { detail })
   }
   report () {
-    const {total, txHash, sectionIndex, length, ibc} = this.detail
+    const {context, txHash, sectionIndex, length, ibc} = this.detail
     console.log()
-    console.log('🟢 IBC #:  ', total)
+    console.log('🟢 IBC #:  ', context.total)
     console.log('🟢 TX ID:  ', txHash)
     console.log('🟢 Section:', sectionIndex)
     console.log('🟢 Bytes:  ', length)
@@ -105,14 +113,14 @@ export class IBCDecodeSuccessEvent extends CustomEvent<IBCDecodeSuccessEventData
   }
 }
 
-export class IBCDecodeFailureEvent extends CustomEvent<IBCDecodeFailureEventData> {
-  constructor (detail: IBCDecodeFailureEventData) {
+export class IBCDecodeFailure<T extends IBCCounter> extends CustomEvent<IBCDecodeFailureData<T>> {
+  constructor (detail: IBCDecodeFailureData<T>) {
     super('decode-failure', { detail })
   }
   report () {
-    const {total, txHash, sectionIndex, length, error} = this.detail
+    const {context, txHash, sectionIndex, length, error} = this.detail
     console.log()
-    console.log('🔴 IBC #:  ', total)
+    console.log('🔴 IBC #:  ', context.total)
     console.log('🔴 TX ID:  ', txHash)
     console.log('🔴 Section:', sectionIndex)
     console.log('🔴 Bytes:  ', length)
