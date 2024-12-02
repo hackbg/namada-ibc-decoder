@@ -65,6 +65,7 @@ export class IBCDecoder extends IBCCounter {
     if (this.decoder) {
       return Promise.resolve(this.decoder)
     } else {
+      // deno-lint-ignore no-async-promise-executor
       return new Promise(async(resolve, reject)=>{
         try {
           const wasm = await Deno.readFile('./pkg/namada_ibc_decoder_bg.wasm')

@@ -1,5 +1,5 @@
 import { IBCDecoder } from './ibc-decoder.ts'
-import type { TX } from './ibc-reader.ts'
+import type { TX } from './ibc-decoder.ts'
 import type { IBCEventHandlers } from './ibc-events.ts'
 import { sql } from './deps.ts'
 import type { DatabasePool } from './deps.ts'
