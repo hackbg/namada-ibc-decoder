@@ -33,7 +33,7 @@ steps:
   - echo "$PASS" | docker login -u "$USER" --password-stdin https://oci.hack.bg
 
   # Build image for IBC decoder
-  - export VERSION="$(date -u +%Y%m%d%H%M%S).0.0-$(git rev-parse --short HEAD)-$DRONE_BUILD_NUMBER"
+  - export VERSION="$(date -u +%Y%m%d%H%M%S).0.0-$(echo $DRONE_COMMIT_SHA|head -c8)-$DRONE_BUILD_NUMBER"
   - export IMAGE="$NAME:$VERSION"
   - 'printf "Name: $NAME\nImage: $IMAGE\n"'
   - docker pull "$IMAGE" || true

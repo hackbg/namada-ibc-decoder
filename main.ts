@@ -1,20 +1,25 @@
 #!/usr/bin/env -S deno run --allow-env --allow-net --allow-read=.env,pkg
-// deno-lint-ignore-file no-explicit-any
 import { runWithConnectionPool } from './ibc-db.ts'
 import { IBCReader } from './ibc-reader.ts'
-import type { IBCDecodeProgress, IBCDecodeSuccess, IBCDecodeFailure } from './ibc-decoder.ts'
+import { sql } from './deps.ts'
 console.log('Version:', IBCReader.version)
 await IBCReader.initDecoder()
 const reader = new IBCReader({
-  'decode-progress': (event) => {
-    (event as IBCDecodeProgress).report()
+  'decode-progress' (event) { event.report() },
+  async 'decode-success' (event) {
+    event.report()
+    await event.detail.context.pool!.query(sql.unsafe`
+      SELECT jsonb_set(field, path, value)
+      FROM transactions WHERE "txHash" = ${event.detail.txHash}
+    `)
   },
-  'decode-success': (event) => {
-    (event as IBCDecodeSuccess<any>).report()
+  async 'decode-failure' (event) {
+    event.report()
+    await event.detail.context.pool!.query(sql.unsafe`
+      SELECT jsonb_set(field, path, value)
+      FROM transactions WHERE "txHash" = ${event.detail.txHash}
+    `)
   },
-  'decode-failure': (event) => {
-    (event as IBCDecodeFailure<any>).report()
-  }
 })
 await runWithConnectionPool(reader.run)
 console.log('Errors encountered:')

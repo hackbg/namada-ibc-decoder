@@ -1,15 +1,21 @@
 import { IBCDecoder } from './ibc-decoder.ts'
+import type { IBCEventHandlers } from './ibc-events.ts'
 import { decodeHex, sql } from './deps.ts'
 import type { DatabasePool } from './deps.ts'
 
 export class IBCReader extends IBCDecoder {
 
-  constructor (events: Record<string, (event: Event & { detail: unknown })=>unknown> = {}) {
+  constructor (events: IBCEventHandlers = {}) {
     super()
     this.bindEvents(events)
   }
 
-  run = (pool: DatabasePool) => pool.stream(IBCReader.query, this.onStream)
+  pool?: DatabasePool
+
+  run = (pool: DatabasePool) => {
+    this.pool = pool
+    return pool.stream(IBCReader.query, this.onStream)
+  }
 
   onStream = (stream: Stream) => stream.on('data', this.onData)
 

@@ -1,3 +1,5 @@
+import type { IBCCounterData, IBCEventHandlers } from './ibc-events.ts'
+
 /** Keeps count of decoded IBC transactions. */
 export class IBCCounter implements IBCCounterData {
   events  = new EventTarget()
@@ -22,18 +24,9 @@ export class IBCCounter implements IBCCounterData {
     this.errors.push([prefix, error])
     this.failed++
   }
-  bindEvents (events: Record<string, (event: CustomEvent<unknown>)=>unknown> = {}) {
+  bindEvents (events: IBCEventHandlers = {}) {
     for (const [event, handler] of Object.entries(events)) {
       this.events.addEventListener(event, handler as (event: Event)=>unknown)
     }
   }
-}
-
-export interface IBCCounterData {
-  total:    number
-  decoded:  number
-  failed:   number
-  ibcTypes: Record<string, number>
-  typeUrls: Set<string>
-  errors:   Array<[string, unknown]>
 }
