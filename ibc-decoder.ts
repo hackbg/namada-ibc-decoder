@@ -1,4 +1,4 @@
-import { encodeHex } from './deps.ts'
+import { encodeBase64 } from './deps.ts'
 import { IBCCounter } from './ibc-counter.ts'
 import type { IBCCounterData } from './ibc-counter.ts'
 import initDecoder, { Decode } from './pkg/namada_ibc_decoder.js'
@@ -17,24 +17,24 @@ export class IBCDecoder extends IBCCounter {
   }
 
   ibcDecodeSuccess (txHash: string, sectionIndex: string, length: number, ibc: DecodedIBC) {
-    //const prefix = this.logPrefix(txHash, sectionIndex, length)
     this.trackIbcDecodeSuccess(ibc.type, ibc?.clientMessage?.typeUrl)
-    //console.log('🟢', prefix, JSON.stringify(ibc, IBCDecoder.serializer, 2))
-    this.events.dispatchEvent(new IBCDecodeSuccessEvent({ txHash, sectionIndex, length, ibc, }))
+    this.events.dispatchEvent(new IBCDecodeSuccessEvent({
+      total: this.total, txHash, sectionIndex, length, ibc,
+    }))
   }
 
   ibcDecodeFailure (txHash: string, sectionIndex: string, length: number, err: {message: string}) {
     this.trackIbcDecodeFailure(this.logPrefix(txHash, sectionIndex, length), err)
-    //console.error('🔴', err)
-    //console.error('🔴', `${prefix} decode failed ${err.message}`)
-    this.events.dispatchEvent(new IBCDecodeFailureEvent({ txHash, sectionIndex, length, error: err }))
+    this.events.dispatchEvent(new IBCDecodeFailureEvent({
+      total: this.total, txHash, sectionIndex, length, error: err
+    }))
   }
 
   logPrefix = (txHash: string, sectionIndex: string, length: number) =>
     `IBC#${this.total}: TX: ${txHash} Section: ${sectionIndex}: ${length}b:`
 
   static serializer (_: unknown, value: unknown) {
-    if (value instanceof Uint8Array) return encodeHex(value)
+    if (value instanceof Uint8Array) return encodeBase64(value)
     if (typeof value === 'bigint') return String(value)
     return value
   }
@@ -65,19 +65,28 @@ export class IBCDecoder extends IBCCounter {
 
 }
 
-interface DecoderWASM { decode_ibc: (bin: Uint8Array)=>object }
+interface DecoderWASM {decode_ibc: (bin: Uint8Array)=>object}
 
-interface DecodedIBC { type: string, clientMessage?: { typeUrl?: string }, [k: string]: unknown }
+interface DecodedIBC {type: string, clientMessage?: { typeUrl?: string }, [k: string]: unknown}
 
-interface IBCDecodeEventData { txHash: string, sectionIndex: string, length: number }
+interface IBCDecodeEventData {total: number, txHash: string, sectionIndex: string, length: number}
 
-interface IBCDecodeSuccessEventData extends IBCDecodeEventData { ibc: DecodedIBC }
+interface IBCDecodeSuccessEventData extends IBCDecodeEventData {ibc: DecodedIBC}
 
-interface IBCDecodeFailureEventData extends IBCDecodeEventData { error: { message: string } }
+interface IBCDecodeFailureEventData extends IBCDecodeEventData {error: { message: string }}
 
 export class IBCDecodeProgressEvent extends CustomEvent<IBCCounterData> {
   constructor (detail: IBCCounterData) {
     super('decode-progress', { detail })
+  }
+  report () {
+    const {total, decoded, failed, ibcTypes, typeUrls} = this.detail
+    console.log()
+    console.log(`\n😼 Decoded ${decoded}/${total} (${failed} failed).`)
+    const types = Object.keys(ibcTypes)
+    console.log(`\n😼 ${types.length} IBC type(s):\n `, types.join(', '))
+    console.log(`\n😼 ${typeUrls.size} type URL(s):\n `, [...typeUrls].join(', '))
+    console.log()
   }
 }
 
@@ -85,10 +94,28 @@ export class IBCDecodeSuccessEvent extends CustomEvent<IBCDecodeSuccessEventData
   constructor (detail: IBCDecodeSuccessEventData) {
     super('decode-success', { detail })
   }
+  report () {
+    const {total, txHash, sectionIndex, length, ibc} = this.detail
+    console.log()
+    console.log('🟢 IBC #:  ', total)
+    console.log('🟢 TX ID:  ', txHash)
+    console.log('🟢 Section:', sectionIndex)
+    console.log('🟢 Bytes:  ', length)
+    console.log('🟢 Data:\n' + JSON.stringify(ibc, IBCDecoder.serializer, 2))
+  }
 }
 
 export class IBCDecodeFailureEvent extends CustomEvent<IBCDecodeFailureEventData> {
   constructor (detail: IBCDecodeFailureEventData) {
     super('decode-failure', { detail })
+  }
+  report () {
+    const {total, txHash, sectionIndex, length, error} = this.detail
+    console.log()
+    console.log('🔴 IBC #:  ', total)
+    console.log('🔴 TX ID:  ', txHash)
+    console.log('🔴 Section:', sectionIndex)
+    console.log('🔴 Bytes:  ', length)
+    console.log('🔴', error)
   }
 }
