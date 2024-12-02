@@ -17,5 +17,6 @@ ENV IBC_DECODER_VERSION ${IBC_DECODER_VERSION}
 ADD deno.json deno.lock deps.ts /
 RUN deno cache --import-map=/deno.json --lock=/deno.lock deps.ts
 ADD ibc-*.ts main.ts /
+RUN deno check *.ts
 ENTRYPOINT [ "/bin/bash" ]
 CMD [ "-c", "deno run --allow-env --allow-net --allow-read=.env,pkg main.ts" ]
