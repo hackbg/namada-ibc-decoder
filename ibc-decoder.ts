@@ -20,40 +20,34 @@ export class IBCDecoder extends IBCCounter {
     }
   }
 
-  decodeIbc (blockHeight: number, txHash: string, sectionIndex: string, bin: Uint8Array) {
-    this.trackIbcDecodeBegin()
+  decodeIbc (blockHeight: number, txHash: string, sectionIndex: string, binary: Uint8Array) {
+    const ibcIndex = this.countIbcDecodeBegin()
     try {
-      const decoded = Decode.ibc(bin) as DecodedIBC
-      this.ibcDecodeSuccess(blockHeight, txHash, sectionIndex, bin.length, decoded)
+      const decoded = Decode.ibc(binary) as DecodedIBC
+      this.countIbcDecodeSuccess(decoded.type, decoded?.clientMessage?.typeUrl)
+      this.events.dispatchEvent(new IBCDecodeSuccess({
+        context: this,
+        ibcIndex,
+        blockHeight,
+        txHash,
+        sectionIndex,
+        binary,
+        decoded,
+      }))
     } catch (e: unknown) {
       const error = e as { message: string }
-      this.ibcDecodeFailure(blockHeight, txHash, sectionIndex, bin.length, error)
+      this.countIbcDecodeFailure(this.logPrefix(txHash, sectionIndex, binary.length), error)
+      this.events.dispatchEvent(new IBCDecodeFailure({
+        context: this,
+        ibcIndex,
+        blockHeight,
+        txHash,
+        sectionIndex,
+        binary,
+        error
+      }))
     }
     this.events.dispatchEvent(new IBCDecodeProgress({...this}))
-  }
-
-  ibcDecodeSuccess (blockHeight: number, txHash: string, sectionIndex: string, length: number, ibc: DecodedIBC) {
-    this.trackIbcDecodeSuccess(ibc.type, ibc?.clientMessage?.typeUrl)
-    this.events.dispatchEvent(new IBCDecodeSuccess({
-      context: this,
-      blockHeight,
-      txHash,
-      sectionIndex,
-      length,
-      ibc,
-    }))
-  }
-
-  ibcDecodeFailure (blockHeight: number, txHash: string, sectionIndex: string, length: number, err: {message: string}) {
-    this.trackIbcDecodeFailure(this.logPrefix(txHash, sectionIndex, length), err)
-    this.events.dispatchEvent(new IBCDecodeFailure({
-      context: this,
-      blockHeight,
-      txHash,
-      sectionIndex,
-      length,
-      error: err
-    }))
   }
 
   logPrefix = (txHash: string, sectionIndex: string, length: number) =>

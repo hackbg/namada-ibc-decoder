@@ -9,10 +9,10 @@ export class IBCCounter implements IBCCounterData {
   ibcTypes: Record<string, number> = {}
   typeUrls: Set<string> = new Set()
   errors: Array<[string, unknown]> = []
-  trackIbcDecodeBegin () {
-    this.total++
+  countIbcDecodeBegin (): number {
+    return this.total++
   }
-  trackIbcDecodeSuccess (type: string, typeUrl?: string) {
+  countIbcDecodeSuccess (type: string, typeUrl?: string) {
     this.ibcTypes[type] ??= 0
     this.ibcTypes[type]++
     if (typeUrl) {
@@ -20,7 +20,7 @@ export class IBCCounter implements IBCCounterData {
     }
     this.decoded++
   }
-  trackIbcDecodeFailure (prefix: string, error: unknown) {
+  countIbcDecodeFailure (prefix: string, error: unknown) {
     this.errors.push([prefix, error])
     this.failed++
   }

@@ -16,7 +16,7 @@ const reader = new IBCReader({
     console.log('⏳ Writing result for', txHash, '/', sectionIndex, '...')
     try {
       await context.pool!.query(sql.unsafe`
-        SELECT jsonb_set(field, path, value)
+        SELECT jsonb_set("txData"->'data'->'sections', path, value)
         FROM transactions WHERE "txHash" = ${event.detail.txHash}
       `)
       console.log('🟢 Updated', txHash, '/', sectionIndex)
@@ -32,7 +32,7 @@ const reader = new IBCReader({
     console.log('⏳ Writing failure for', txHash, '/', sectionIndex, '...')
     try {
       await context.pool!.query(sql.unsafe`
-        SELECT jsonb_set(field, path, value)
+        SELECT jsonb_set("txData"->'data'->'sections', path, value)
         FROM transactions WHERE "txHash" = ${event.detail.txHash}
       `)
       console.log('🟡 Updated', txHash, '/', sectionIndex)

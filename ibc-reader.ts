@@ -1,7 +1,7 @@
 import { IBCDecoder } from './ibc-decoder.ts'
 import type { TX } from './ibc-reader.ts'
 import type { IBCEventHandlers } from './ibc-events.ts'
-import { decodeHex, sql } from './deps.ts'
+import { sql } from './deps.ts'
 import type { DatabasePool } from './deps.ts'
 
 export class IBCReader extends IBCDecoder {
