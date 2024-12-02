@@ -1,4 +1,4 @@
-FROM rust:1.79-alpine3.20 as wasm
+FROM rust:1.79-alpine3.20@sha256:cc9b42c44d37caccb8f7c366f19f5a41ca0f20f826fb043be073167308b6073d as wasm
 
 RUN apk add musl-dev protoc protobuf-dev openssl-dev cmake build-base binaryen
 RUN rustup target add wasm32-unknown-unknown
