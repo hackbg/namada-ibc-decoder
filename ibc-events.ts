@@ -19,6 +19,7 @@ export interface IBCCounterData {
 
 export interface IBCDecodeData<T extends IBCCounterData> {
   context:      T,
+  blockHeight:  number,
   txHash:       string,
   sectionIndex: string,
   length:       number
@@ -58,9 +59,10 @@ export class IBCDecodeSuccess<T extends IBCCounterData> extends CustomEvent<IBCD
     super('decode-success', { detail })
   }
   report (full: boolean = false) {
-    const {context, txHash, sectionIndex, length, ibc} = this.detail
+    const {context, blockHeight, txHash, sectionIndex, length, ibc} = this.detail
     console.log()
     console.log('🟢 IBC #:  ', context.total)
+    console.log('🟢 Block:  ', blockHeight)
     console.log('🟢 TX ID:  ', txHash)
     console.log('🟢 Section:', sectionIndex)
     console.log('🟢 Bytes:  ', length)
@@ -77,9 +79,10 @@ export class IBCDecodeFailure<T extends IBCCounterData> extends CustomEvent<IBCD
     super('decode-failure', { detail })
   }
   report () {
-    const {context, txHash, sectionIndex, length, error} = this.detail
+    const {context, blockHeight, txHash, sectionIndex, length, error} = this.detail
     console.log()
     console.log('🔴 IBC #:  ', context.total)
+    console.log('🔴 Block:  ', blockHeight)
     console.log('🔴 TX ID:  ', txHash)
     console.log('🔴 Section:', sectionIndex)
     console.log('🔴 Bytes:  ', length)

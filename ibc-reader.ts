@@ -1,4 +1,5 @@
 import { IBCDecoder } from './ibc-decoder.ts'
+import type { TX } from './ibc-reader.ts'
 import type { IBCEventHandlers } from './ibc-events.ts'
 import { decodeHex, sql } from './deps.ts'
 import type { DatabasePool } from './deps.ts'
@@ -17,33 +18,24 @@ export class IBCReader extends IBCDecoder {
     return pool.stream(IBCReader.query, this.onStream)
   }
 
-  onStream = (stream: Stream) => stream.on('data', this.onData)
+  onStream = (stream: TXStream) => stream.on('data', this.onData)
 
-  onData = (tx: TX) => {
-    let next_is_ibc = false
-    for (const sectionIndex in tx.data.txsections) {
-      const section = tx.data.txsections[sectionIndex]
-      if (next_is_ibc && (section.type === 'Data')) {
-        this.decodeIbc(decodeHex(section.data), tx.data.txHash, sectionIndex)
-      }
-      next_is_ibc = (section.type === 'Code') && (section.tag === 'tx_ibc.wasm')
-    }
-  }
+  onData = (tx: TX) => this.decodeTx(tx)
 
   static query = sql.unsafe`
     with ids as (
       select
+        "blockHeight",
         "txHash",
         jsonb_path_query("txData", '$.data.content[*]') as txContent,
         "txData"->'data'->'sections' as txSections
       from transactions
-    ) select * from ids where (txContent->>'type')::text like '%ibc%';
+    )
+    select * from ids
+      where (txContent->>'type')::text like '%ibc%'
+      order by "blockHeight" desc;
   `
 
 }
 
-interface Stream { on: (event: string, cb: (data: TX)=>unknown)=>unknown }
-
-interface TX { data: { txHash: string, txsections: Array<TXSection> } }
-
-interface TXSection { type: string, tag: string, data: string, }
+interface TXStream { on: (event: string, cb: (data: TX)=>unknown)=>unknown }

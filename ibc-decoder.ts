@@ -2,26 +2,41 @@ import { IBCCounter } from './ibc-counter.ts'
 import { IBCDecodeProgress, IBCDecodeSuccess, IBCDecodeFailure } from './ibc-events.ts'
 import type { DecodedIBC } from './ibc-events.ts'
 import initDecoder, { Decode } from './pkg/namada_ibc_decoder.js'
+import { decodeHex } from './deps.ts'
 
 interface DecoderWASM {decode_ibc: (bin: Uint8Array)=>object}
 
 /** Decodes IBC transactions using the WASM module. */
 export class IBCDecoder extends IBCCounter {
 
-  decodeIbc (bin: Uint8Array, txHash: string, sectionIndex: string) {
+  decodeTx (tx: TX) {
+    let next_is_ibc = false
+    for (const sectionIndex in tx.data.txsections) {
+      const section = tx.data.txsections[sectionIndex]
+      if (next_is_ibc && (section.type === 'Data')) {
+        this.decodeIbc(tx.data.blockHeight, tx.data.txHash, sectionIndex, decodeHex(section.data))
+      }
+      next_is_ibc = (section.type === 'Code') && (section.tag === 'tx_ibc.wasm')
+    }
+  }
+
+  decodeIbc (blockHeight: number, txHash: string, sectionIndex: string, bin: Uint8Array) {
     this.trackIbcDecodeBegin()
     try {
-      this.ibcDecodeSuccess(txHash, sectionIndex, bin.length, Decode.ibc(bin) as DecodedIBC)
+      const decoded = Decode.ibc(bin) as DecodedIBC
+      this.ibcDecodeSuccess(blockHeight, txHash, sectionIndex, bin.length, decoded)
     } catch (e: unknown) {
-      this.ibcDecodeFailure(txHash, sectionIndex, bin.length, e as { message: string })
+      const error = e as { message: string }
+      this.ibcDecodeFailure(blockHeight, txHash, sectionIndex, bin.length, error)
     }
     this.events.dispatchEvent(new IBCDecodeProgress({...this}))
   }
 
-  ibcDecodeSuccess (txHash: string, sectionIndex: string, length: number, ibc: DecodedIBC) {
+  ibcDecodeSuccess (blockHeight: number, txHash: string, sectionIndex: string, length: number, ibc: DecodedIBC) {
     this.trackIbcDecodeSuccess(ibc.type, ibc?.clientMessage?.typeUrl)
     this.events.dispatchEvent(new IBCDecodeSuccess({
       context: this,
+      blockHeight,
       txHash,
       sectionIndex,
       length,
@@ -29,10 +44,11 @@ export class IBCDecoder extends IBCCounter {
     }))
   }
 
-  ibcDecodeFailure (txHash: string, sectionIndex: string, length: number, err: {message: string}) {
+  ibcDecodeFailure (blockHeight: number, txHash: string, sectionIndex: string, length: number, err: {message: string}) {
     this.trackIbcDecodeFailure(this.logPrefix(txHash, sectionIndex, length), err)
     this.events.dispatchEvent(new IBCDecodeFailure({
       context: this,
+      blockHeight,
       txHash,
       sectionIndex,
       length,
@@ -68,3 +84,7 @@ export class IBCDecoder extends IBCCounter {
   }
 
 }
+
+export interface TX { data: { blockHeight: number, txHash: string, txsections: Array<TXSection> } }
+
+export interface TXSection { type: string, tag: string, data: string, }
